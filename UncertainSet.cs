@@ -35,7 +35,7 @@ namespace Zhang {
 
 			double probabilitySum = 0.0;
 			
-			if (remainingChoices2.Count == 0) {
+			if (remainingChoices1.Count == 0) {
 				var excSet = world1.Except(world2);
 				if (!excSet.Any())
 					probabilitySum = r.WorldProbability(world1) * s.WorldProbability(world2);
