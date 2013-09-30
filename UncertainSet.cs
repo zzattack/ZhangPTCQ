@@ -1,84 +1,48 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
 namespace Zhang {
-	public class UncertainSet<T> : List<UncertainItem<T>> {
+	public class UncertainSet<T> : SortedList<T, UncertainItem<T>> {
+		private static int _idCounter = 0;
+		public int Id { get; private set; }
+
+		public UncertainSet() {
+			Id = _idCounter++;
+		}
 
 		public HashSet<T> AsSet() {
-			return new HashSet<T>(this.Select(i => i.Value));
+			return new HashSet<T>(this.Values.Select(v => v.Value));
 		}
 		public List<T> AsList() {
-			return new List<T>(this.Select(i => i.Value));
+			return new List<T>(this.Values.Select(v => v.Value));
 		}
 
-		public double WorldProbability(IEnumerable<T> w) {
+		public double WorldProbability(IEnumerable<T> world) {
 			double r = 1;
-			foreach (var i in this)
-				r *= w.Contains(i.Value) ? i.Probability : 1 - i.Probability;
+			foreach (var i in this.Values)
+				r *= world.Contains(i.Value) ? i.Probability : 1 - i.Probability;
 			return r;
 		}
 
-		public double ContainmentProbability(UncertainSet<T> s) {
-			return ContainmentProbabilityRecurse(
-				this, new List<T>(), this.ToList(),
-				s, new List<T>(), s.ToList());
+		public static double Theorem1(UncertainSet<T> r, UncertainSet<T> s) {
+			double res = 1.0;
+			foreach (var rx in r.Values) {
+				UncertainItem<T> sx = null;
+				s.TryGetValue(rx.Value, out sx);
+				res *= rx.Probability * (sx != null ? sx.Probability : 0) + 1 - rx.Probability;
+			}
+			return res;
 		}
 
-
-		// EXTREMELY slow implementation of the most basic algorithm
-		// -- this serves only as a way of verifying the implemented solution's correctness
-		static double ContainmentProbabilityRecurse(
-			UncertainSet<T> r, List<T> world1, List<UncertainItem<T>> remainingChoices1,
-			UncertainSet<T> s, List<T> world2, List<UncertainItem<T>> remainingChoices2) {
-
-			double probabilitySum = 0.0;
-			
-			if (remainingChoices1.Count == 0) {
-				var excSet = world1.Except(world2);
-				if (!excSet.Any())
-					probabilitySum = r.WorldProbability(world1) * s.WorldProbability(world2);
-			}
-			else {
-				var choice = remainingChoices1[0];
-				remainingChoices1.RemoveAt(0);
-
-				world1.Add(choice.Value);
-				probabilitySum += ContainmentProbabilityRecurseInner(r, world1, s, world2, new List<UncertainItem<T>>(remainingChoices2));
-
-				// undo choice
-				world1.Remove(choice.Value);
-				probabilitySum += ContainmentProbabilityRecurseInner(r, world1, s, world2, new List<UncertainItem<T>>(remainingChoices2));
-			}
-
-			return probabilitySum;
+		public override string ToString() {
+			return Id.ToString();
 		}
 
-		// this inner loop backtracks over all possible worlds of s
-		static double ContainmentProbabilityRecurseInner(UncertainSet<T> r, List<T> world1, UncertainSet<T> s, List<T> world2, List<UncertainItem<T>> remainingChoices2) {
-			double probabilitySum = 0.0;
-
-			if (remainingChoices2.Count == 0) {
-				var excSet = world1.Except(world2);
-				if (!excSet.Any())
-					probabilitySum = r.WorldProbability(world1) * s.WorldProbability(world2);
-			}
-			else {
-				var choice = remainingChoices2[0];
-				remainingChoices2.RemoveAt(0);
-
-				world2.Add(choice.Value);
-				probabilitySum += ContainmentProbabilityRecurseInner(r, world1, s, world2, new List<UncertainItem<T>>(remainingChoices2));
-
-				world2.Remove(choice.Value);
-				probabilitySum += ContainmentProbabilityRecurseInner(r, world1, s, world2, new List<UncertainItem<T>>(remainingChoices2));
-			}
-
-			return probabilitySum;
+		internal void Add(UncertainItem<T> uncertainItem) {
+			Add(uncertainItem.Value, uncertainItem);
 		}
-
-
-
 	}
 }

@@ -1,7 +1,7 @@
 ﻿using System;
 
 namespace Zhang {
-	
+
 	public class UncertainItem<T> : IComparable {
 		public T Value { get; set; }
 		public double Probability { get; set; }
@@ -12,7 +12,7 @@ namespace Zhang {
 		}
 
 		public override bool Equals(object obj) {
-			return Value.Equals(obj);
+			return (obj is UncertainItem<T>) && Value.Equals((obj as UncertainItem<T>).Value);
 		}
 
 		public override int GetHashCode() {

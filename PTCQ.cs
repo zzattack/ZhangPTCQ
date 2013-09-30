@@ -4,53 +4,67 @@ using System.Linq;
 using System.Text;
 
 namespace Zhang {
-	public static class PTCQ<T> {
+	public static class PTCQ {
 
-
-		public static HashSet<UncertainSet<T>> NaiveQuery<T>(UncertainSet<T> q, IEnumerable<UncertainSet<T>> S, double tau) {
-			var ret = new HashSet<UncertainSet<T>>();
-			foreach (UncertainSet<T> s in S) {
-				if (q.ContainmentProbability(s) >= tau)
-					ret.Add(s);
-			}
-			return ret;
+		public static IEnumerable<UncertainSet<T>> NaiveQuery<T>(UncertainSet<T> q, IEnumerable<UncertainSet<T>> S, double tau) {
+			return S.Where(s => UncertainSet<T>.Theorem1(q, s) >= tau);
 		}
 
-
-		public static IEnumerable<UncertainSet<T>> BasicQuery<T>(InvertedFile<T> invFile, UncertainSet<T> q, List<UncertainSet<T>> S, double tau) {
+		public static IEnumerable<UncertainSet<T>> BasicApproach<T>(InvertedFile<T> invFile, UncertainSet<T> q, List<UncertainSet<T>> S, double tau) {
 			// 1. if q(\emptySet) >= \tau then return S
-			if (q.WorldProbability(new HashSet<T>()) >= tau) return new HashSet<UncertainSet<T>>(S);
+			if (q.WorldProbability(new HashSet<T>()) >= tau)
+				return new HashSet<UncertainSet<T>>(S);
 
 			// 2. C_q <- \Cup_{x \in q}I(x) -- i.e. candidates
-			var C_q = new List<UncertainSet<T>>();
-			foreach (var t in q) {
-				foreach (var candidate in invFile.GetCandidates(t))
-					if (!C_q.Contains(candidate))
-						C_q.Add(candidate);
-			}
+			var candidates = new HashSet<UncertainSet<T>>();
+			foreach (var x in q.Values)
+				foreach (var candidate in invFile.GetCandidates(x))
+					candidates.Add(candidate);
 
-			// 3.  -- i.e. filter candidates using Th. 1
-			var result = new List<UncertainSet<T>>();
-			foreach (var candidate in C_q) {
-				bool prune = false;
-				foreach (var x in q) {
-					var itemIdx = candidate.BinarySearch(0, candidate.Count, x, null);
-					double s_x = itemIdx >= 0 ? candidate[itemIdx].Probability : 0;
-					if (s_x < 1.0 - ((1.0 - tau) / x.Probability)) {
-						prune = true; break;
-					}
-				}
-				if (!prune)
-					result.Add(candidate);
-
-			}
-			return result;
+			// 3. filter candidates using Th. 1
+			return candidates.Where(c => UncertainSet<T>.Theorem1(q, c) >= tau);
 		}
 
+		public enum RefineStrategy {
+			ByData,
+			ByIndex,
+			Hybrid
+		};
 
-		public static HashSet<UncertainSet<T>> EnhanhedQuery<T>(InvertedFile<T> invFile, UncertainSet<T> q, List<UncertainSet<T>> S, double tau) {
-			// TODO
-			return new HashSet<UncertainSet<T>>();
+		public static IEnumerable<UncertainSet<T>> EnhancedApproach<T>(InvertedFile<T> invFile, UncertainSet<T> q, List<UncertainSet<T>> S, double tau, RefineStrategy strat) {
+			// 1. if q(\emptySet) >= \tau then return S
+			if (q.WorldProbability(new HashSet<T>()) >= tau)
+				return new HashSet<UncertainSet<T>>(S);
+
+			// 2. C_q <- \Cap_{x \in PI}{ (s,s(x)) in I(x) | s(x) >= c(x) } -- i.e. candidates
+			var pruningItems = new Dictionary<UncertainItem<T>, double>();
+			var nonPruningItems = new List<UncertainItem<T>>();
+			foreach (var x in q.Values) {
+				double c = 1 - (1.0 - tau) / x.Probability;
+				if (c > 0) // x is a cutoff item
+					pruningItems[x] = c;
+				else
+					nonPruningItems.Add(x);
+			}
+			IEnumerable<UncertainSet<T>> candidates = S.ToList();
+			foreach (var x in pruningItems)
+				candidates = candidates.Intersect(invFile.GetCandidates(x.Key, x.Value));
+
+			foreach (var x in nonPruningItems) {
+				switch (strat) {
+					case RefineStrategy.ByData:
+						// 3. refine candidates using Th. 1
+						return candidates.Where(c => UncertainSet<T>.Theorem1(q, c) >= tau);
+
+					case RefineStrategy.ByIndex:
+						return candidates.Where(c => UncertainSet<T>.Theorem1(q, c) >= tau);
+
+					case RefineStrategy.Hybrid:
+						break;
+				}
+			}
+
+			return null;
 		}
 
 	}
