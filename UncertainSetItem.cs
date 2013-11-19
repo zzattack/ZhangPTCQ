@@ -2,7 +2,7 @@
 
 namespace Zhang {
 
-	public class UncertainItem<T> : IComparable {
+	public class UncertainItem<T> : IComparable where T : IComparable {
 		public T Value { get; set; }
 		public double Probability { get; set; }
 
@@ -20,7 +20,8 @@ namespace Zhang {
 		}
 
 		public int CompareTo(object other) {
-			return ((IComparable)Value).CompareTo(((UncertainItem<T>)other).Value);
+			// call compare on the values
+			return Value.CompareTo(((UncertainItem<T>)other).Value);
 		}
 
 		public override string ToString() {

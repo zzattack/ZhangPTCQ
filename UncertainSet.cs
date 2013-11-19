@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
-using System.Text;
 
 namespace Zhang {
-	public class UncertainSet<T> : SortedList<T, UncertainItem<T>> {
+	public class UncertainSet<T> : SortedList<T, UncertainItem<T>> where T : IComparable {
 		private static int _idCounter = 0;
 		public int Id { get; private set; }
 
@@ -21,10 +20,8 @@ namespace Zhang {
 		}
 
 		public double WorldProbability(IEnumerable<T> world) {
-			double r = 1;
-			foreach (var i in this.Values)
-				r *= world.Contains(i.Value) ? i.Probability : 1 - i.Probability;
-			return r;
+			// "naive" evaluation of world probability;
+			return this.Values.Aggregate<UncertainItem<T>, double>(1, (current, i) => current * (world.Contains(i.Value) ? i.Probability : 1 - i.Probability));
 		}
 
 		public static double Theorem1(UncertainSet<T> r, UncertainSet<T> s) {
@@ -38,10 +35,10 @@ namespace Zhang {
 		}
 
 		public override string ToString() {
-			return Id.ToString();
+			return Id.ToString(CultureInfo.InvariantCulture);
 		}
 
-		internal void Add(UncertainItem<T> uncertainItem) {
+		public void Add(UncertainItem<T> uncertainItem) {
 			Add(uncertainItem.Value, uncertainItem);
 		}
 	}
